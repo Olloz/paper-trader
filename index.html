@@ -75,8 +75,8 @@ const color = i => `var(--s${i})`;
 const table = (head, rows) => rows.length
   ? `<table><tr>${head.map(h => `<th>${h}</th>`).join("")}</tr>${rows.map(r => `<tr>${r.map(c => `<td>${c}</td>`).join("")}</tr>`).join("")}</table>`
   : `<div class="empty">None yet.</div>`;
-const DESC = {"Original": "Momentum, tight stops", "Trend+": "Momentum, wide trailing stops, market filter",
-              "Long/Short": "Trend+ that also bets on falls", "Dip buyer": "Buys oversold dips in uptrends",
+const DESC = {"Original": "Momentum, tight stops (unchanged control)", "Trend+": "Hourly momentum, wide trailing stops, market filter, trades rarely",
+              "Long/Short": "Trend+ that also bets on falls", "Dip buyer": "Buys deep dips in uptrends, very selective",
               "Claude AI": "Claude reads the markets and news hourly and decides"};
 const nm = (s, sym) => (s.names || {})[sym] || sym;
 let state, pick = null;

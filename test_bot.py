@@ -73,6 +73,10 @@ assert bot.daily_summary(s, {}, 1794355200 + 86400 + 60) is None
 s, b, _ = run(BASE, cs, now)
 assert b["positions"]["X"]["entry"] > cs[-1]["c"]
 
+# 6b. cost filter: a target that can't cover costs min_edge times over is skipped
+s, b, log = run(dict(BASE, min_edge=1000), cs, now)
+assert not log and not b["positions"]
+
 # 7. Claude AI orders: applied once, % stops from fill, bad and stale orders rejected
 AI = {bot.AI: dict(style="ai")}
 s = bot.new_state(0); s["bots"] = {}
