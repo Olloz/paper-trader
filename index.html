@@ -37,7 +37,7 @@
   <div class="card" id="trades"></div>
 </main>
 <script>
-const £ = v => "£" + v.toLocaleString("en-GB", {minimumFractionDigits:2, maximumFractionDigits:2});
+const gbp = v => "£" + v.toLocaleString("en-GB", {minimumFractionDigits:2, maximumFractionDigits:2});
 const px = v => v >= 1 ? v.toFixed(2) : v.toPrecision(4);
 const when = t => new Date(t * 1000).toLocaleString("en-GB", {day:"numeric", month:"short", hour:"2-digit", minute:"2-digit"});
 const cls = v => v >= 0 ? "up" : "down";
@@ -64,19 +64,19 @@ async function load() {
   const wins = s.trades.filter(t => t.pnl > 0).length;
   document.getElementById("sub").textContent = `Simulated money only. Started ${when(s.started)}, last tick ${when(s.updated)}.`;
   document.getElementById("kpis").innerHTML = [
-    [£(eq), "Equity"], [`<span class="${cls(pnl)}">${pnl >= 0 ? "+" : ""}${£(pnl)}</span>`, "Profit / loss"],
+    [gbp(eq), "Equity"], [`<span class="${cls(pnl)}">${pnl >= 0 ? "+" : ""}${gbp(pnl)}</span>`, "Profit / loss"],
     [`<span class="${cls(pnl)}">${(100 * pnl / s.start_cash).toFixed(2)}%</span>`, "Return"],
-    [£(s.cash), "Cash"], [s.trades.length ? `${Math.round(100 * wins / s.trades.length)}%` : "–", `Win rate (${s.trades.length} trades)`],
+    [gbp(s.cash), "Cash"], [s.trades.length ? `${Math.round(100 * wins / s.trades.length)}%` : "–", `Win rate (${s.trades.length} trades)`],
   ].map(([v, l]) => `<div class="kpi"><b>${v}</b><span>${l}</span></div>`).join("");
   chart(s.history, s.start_cash);
   document.getElementById("open").innerHTML = table(["Market", "Opened", "Entry", "Now", "Stop", "Target", "Value", "P/L"],
     Object.entries(s.positions).map(([sym, p]) => {
       const now = s.last_prices[sym] ?? p.entry, val = p.qty * now, pl = val - p.cost;
-      return [sym, when(p.opened), px(p.entry), px(now), px(p.stop), px(p.tp), £(val), `<span class="${cls(pl)}">${£(pl)}</span>`];
+      return [sym, when(p.opened), px(p.entry), px(now), px(p.stop), px(p.tp), gbp(val), `<span class="${cls(pl)}">${gbp(pl)}</span>`];
     }));
   document.getElementById("trades").innerHTML = table(["Market", "Closed", "Entry", "Exit", "Why", "P/L", "%"],
     s.trades.slice().reverse().map(t => [t.pair, when(t.closed), px(t.entry), px(t.exit), t.why,
-      `<span class="${cls(t.pnl)}">${£(t.pnl)}</span>`, `<span class="${cls(t.pct)}">${t.pct}%</span>`]));
+      `<span class="${cls(t.pnl)}">${gbp(t.pnl)}</span>`, `<span class="${cls(t.pct)}">${t.pct}%</span>`]));
 }
 load(); setInterval(load, 60000);
 </script>
