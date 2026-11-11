@@ -78,6 +78,7 @@ const table = (head, rows) => rows.length
 const DESC = {"Original": "Momentum, tight stops (unchanged control)", "Trend+": "Hourly momentum, wide trailing stops, market filter, trades rarely",
               "Long/Short": "Trend+ that also bets on falls", "Dip buyer": "Buys deep dips in uptrends, very selective",
               "Claude AI": "Claude reads the markets and news hourly and decides"};
+const esc = v => String(v ?? "").replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
 const nm = (s, sym) => (s.names || {})[sym] || sym;
 let state, pick = null;
 
@@ -88,7 +89,9 @@ function chart(s, svgId = "chart", legendId = "legend") {
     ? `<span><i style="background:${color(i)}"></i>${name}</span>` : `<span><i class="dash"></i>${name}${i === bots.length + 1 ? " (dotted)" : ""}</span>`).join("");
   if (H.length < 2) { svg.innerHTML = `<text x="450" y="130" text-anchor="middle" fill="var(--mute)" font-size="14">The line appears after the second run (about 15 minutes).</text>`; return; }
   const vals = H.flatMap(r => r.slice(1).filter(v => v != null)).concat(s.start_cash);
-  const lo = Math.min(...vals), hi = Math.max(...vals), pad = (hi - lo) * 0.1 || 1;
+  let lo = Infinity, hi = -Infinity;
+  for (const v of vals) { if (v < lo) lo = v; if (v > hi) hi = v; }
+  const pad = (hi - lo) * 0.1 || 1;
   const t0 = H[0][0], t1 = H[H.length - 1][0];
   const X = t => 40 + (t - t0) / (t1 - t0 || 1) * 855, Y = v => 250 - (v - lo + pad) / (hi - lo + 2 * pad) * 240;
   let out = `<line x1="40" x2="895" y1="${Y(s.start_cash)}" y2="${Y(s.start_cash)}" stroke="var(--line)"/>
@@ -127,7 +130,7 @@ function render() {
   board(s, "board");
   const ai = s.ai || {};
   document.getElementById("ai").innerHTML = `<b><span class="dot" style="background:var(--s4)"></span>Claude AI's latest view</b>
-    <div class="sub" style="margin-top:4px">${ai.summary ? `${when(ai.at)}: ${ai.summary.replace(/</g, "&lt;")}` : "No orders from Claude yet: it checks in every hour."}</div>`;
+    <div class="sub" style="margin-top:4px">${ai.summary ? `${when(ai.at)}: ${esc(ai.summary)}` : "No orders from Claude yet: it checks in every hour."}</div>`;
   renderDetails();
 }
 
@@ -155,13 +158,13 @@ function renderDetails() {
   const b = s.bots[pick];
   document.getElementById("open").innerHTML = `<b>Open positions</b>` + table(["Market", "Side", "Opened", "Entry", "Now", "Stop", "Target", "Value", "P/L"],
     Object.entries(b.positions).map(([sym, p]) => {
-      const now = s.last_prices[sym] ?? p.entry, val = p.qty * (p.entry + p.side * (now - p.entry)), pl = val - p.cost;
+      const now = s.last_prices[sym] ?? p.entry, val = p.value ?? p.cost, pl = val - p.cost;
       const trailed = p.stop !== p.stop0 ? " ↑" : "";
-      return [nm(s, sym) + (p.note ? `<div class="sub">${p.note}</div>` : ""), p.side > 0 ? "Long" : "Short", when(p.opened), px(p.entry), px(now), px(p.stop) + trailed, px(p.tp), gbp(val),
+      return [nm(s, sym) + (p.note ? `<div class="sub">${esc(p.note)}</div>` : ""), p.side > 0 ? "Long" : "Short", when(p.opened), px(p.entry), px(now), px(p.stop) + trailed, px(p.tp), gbp(val),
               `<span class="${cls(pl)}">${sgn(pl)}</span>`];
     }));
   document.getElementById("trades").innerHTML = `<b>Closed trades</b>` + table(["Market", "Side", "Closed", "Entry", "Exit", "Why", "P/L", "%"],
-    b.trades.slice().reverse().slice(0, 100).map(t => [nm(s, t.pair), t.side > 0 ? "Long" : "Short", when(t.closed), px(t.entry), px(t.exit), t.why,
+    b.trades.slice().reverse().slice(0, 100).map(t => [nm(s, t.pair), t.side > 0 ? "Long" : "Short", when(t.closed), px(t.entry), px(t.exit), esc(t.why),
       `<span class="${cls(t.pnl)}">${sgn(t.pnl)}</span>`, `<span class="${cls(t.pct)}">${t.pct}%</span>`]));
 
   document.getElementById("daily").innerHTML = s.daily.length ? table(["Day"].concat(bots),

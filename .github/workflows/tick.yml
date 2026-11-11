@@ -14,9 +14,15 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 50
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      # the hourly Claude agent may only ever change its order file; anything else stops the bot until a human looks
+      - run: |
+          bad=$(git log -50 --author=noreply@anthropic.com --name-only --format= | grep -vx claude_orders.json | grep . || true)
+          if [ -n "$bad" ]; then echo "Claude agent changed files it must not touch: $bad"; exit 1; fi
       - run: python test_bot.py
       - run: python bot.py
         env:

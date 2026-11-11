@@ -4,12 +4,12 @@ G = bot.GRAN
 BASE = dict(style="trend", atr=G, stop=2.0, tp=3.0, trail=False, filter=False, shorts=False)
 
 
-def trend(n=80, start=100.0, step=0.3):
+def trend(n=80, start=100.0, step=0.3, pull=1.2, every=3):
     # steady trend with small pullbacks so RSI stays in the 50-70 (or 30-50) band
     cs, p = [], start
     for i in range(n):
         o = p
-        p = p + (step if i % 3 else -step * 1.2)
+        p = p + (step if i % every else -step * pull)
         cs.append(dict(t=i * G, o=o, c=p, h=max(o, p) + 0.2, l=min(o, p) - 0.2))
     return cs
 
@@ -76,6 +76,27 @@ assert b["positions"]["X"]["entry"] > cs[-1]["c"]
 # 6b. cost filter: a target that can't cover costs min_edge times over is skipped
 s, b, log = run(dict(BASE, min_edge=1000), cs, now)
 assert not log and not b["positions"]
+
+# 6c. hourly-signal bot (Trend+/Long/Short path): goes long on a 60h uptrend, trails at trail_atr x hourly ATR,
+#     and only checks stops from the candle after the signal candle
+H = bot.HOUR
+long_up = trend(n=240, pull=4.0, every=6)  # choppier, so hourly RSI sits in the 50-70 band
+hnow = long_up[-1]["t"] + G
+cfg = dict(BASE, tf=H, atr=H, trail=True, trail_atr=5.0, stop=3.0, tp=9.0)
+s, b, log = run(cfg, long_up, hnow)
+assert log and "BUY X" in log[0], log
+pos = b["positions"]["X"]
+assert abs(pos["trail"] - 5.0 * bot.atr(bot.hourly(long_up))) < 1e-9, pos
+assert pos["since"] == hnow  # the signal candle (which ended at hnow) is never checked against the stop
+
+# 6d. dip_rsi: a sharp dip (15m RSI ~29.7) inside an hourly uptrend buys at the default 30, not at 25
+dip, p = list(long_up), long_up[-1]["c"]
+for i in range(6):
+    o, p = p, p - 0.8
+    dip.append(candle(dip[-1]["t"] + G, o, p))
+DIP = dict(BASE, style="revert", atr=H, stop=2.0, tp=3.0)
+assert "BUY X" in run(DIP, dip, dip[-1]["t"] + G)[2][0]
+assert not run(dict(DIP, dip_rsi=25), dip, dip[-1]["t"] + G)[2]
 
 # 7. Claude AI orders: applied once, % stops from fill, bad and stale orders rejected
 AI = {bot.AI: dict(style="ai")}

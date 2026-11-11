@@ -161,7 +161,7 @@ def features(cs, now):
     hs = hourly(closed)
     hc = [h["c"] for h in hs]
     f = dict(c=closes[-1], r=rsi(closes), e20=ema(closes, 20)[-1], e50=ema(closes, 50)[-1], atr15=atr(closed),
-             atr1h=atr(hs) if len(hs) >= 16 else None, he20=None, he50=None, hr=None, trend=None, since=cs[-1]["t"],
+             atr1h=atr(hs) if len(hs) >= 16 else None, he20=None, he50=None, hr=None, trend=None, since=closed[-1]["t"] + GRAN,
              chg1h=closes[-1] / closes[-5] - 1, chg24h=closes[-1] / closes[max(-97, -len(closes))] - 1)
     if len(hs) >= 50:
         f["he20"], f["he50"], f["hr"] = ema(hc, 20)[-1], ema(hc, 50)[-1], rsi(hc)
@@ -183,7 +183,7 @@ def new_bot():
 def new_state(now):
     return {"start_cash": START_CASH, "started": now, "bots": {n: new_bot() for n in BOTS},
             "series": list(BOTS) + ["BTC hold", "SPY hold"], "history": [], "bench": {}, "names": NAMES,
-            "log": [], "daily": [], "day_start": {}, "last_day": None, "ai": {}}
+            "daily": [], "day_start": {}, "last_day": None, "ai": {}}
 
 
 def value(pos, px):
@@ -315,6 +315,8 @@ def step_ai(state, bot, feats, orders, now):
         if o.get("action") == "close":
             if sym in bot["positions"] and f:
                 log.append(close_pos(bot, sym, f["c"], "Claude: " + why, now))
+            else:
+                log.append("rejected close %s: not held, or market shut" % sym)
             continue
         try:
             side = {"long": 1, "short": -1}[o["side"]]
@@ -373,7 +375,9 @@ def step(state, data, now, bots=BOTS, orders=None):
             for b in BENCH]
     state["series"] = list(bots) + ["BTC hold", "SPY hold"]
     state["history"] = (state["history"] + [row])[-10000:]
-    state["log"] = (state["log"] + [[now, m] for m in log])[-500:]
+    for b in state["bots"].values():  # the dashboard shows this instead of re-deriving it
+        for s, p in b["positions"].items():
+            p["value"] = round(value(p, last.get(s, p["entry"])), 2)
     state.update(updated=now, last_prices=last, regimes={k: regime(s, feats) for k, s in REGIME_OF.items()})
     return log, daily_summary(state, last, now)
 
@@ -398,7 +402,7 @@ def load_state(now):
             state["bots"][n] = new_bot()
             i = 1 + list(state["bots"]).index(n)
             state["history"] = [r[:i] + [None] + r[i:] for r in state["history"]]
-    state.setdefault("ai", {}); state["names"] = NAMES
+    state.setdefault("ai", {}); state["names"] = NAMES; state.pop("log", None)
     return state
 
 

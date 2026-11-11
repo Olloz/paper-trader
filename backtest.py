@@ -23,6 +23,7 @@ def iso(t):
 def load_raw():
     if os.path.exists(CACHE) and time.time() - os.path.getmtime(CACHE) < 6 * 3600:
         c = json.load(open(CACHE))
+        print("%d of %d markets from cache" % (len(c["raw"]), len(bot.KIND)))
         return c["start"], c["end"], c["raw"]
     end = int(time.time()) // bot.GRAN * bot.GRAN
     start = end - DAYS * 86400
