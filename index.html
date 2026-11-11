@@ -6,9 +6,9 @@
 <title>Paper Trader</title>
 <style>
   :root { --bg:#f7f7f5; --card:#fff; --fg:#1a1a1a; --mute:#6b6b6b; --line:#e4e4e0; --up:#127a3e; --down:#c0352b;
-          --s0:#2f5bd3; --s1:#d9480f; --s2:#0c8a6e; --s3:#9c36b5; --bench:#8a8a8a; }
+          --s0:#2f5bd3; --s1:#d9480f; --s2:#0c8a6e; --s3:#9c36b5; --s4:#b08900; --bench:#8a8a8a; }
   @media (prefers-color-scheme: dark) { :root { --bg:#141414; --card:#1e1e1e; --fg:#ececec; --mute:#9a9a9a; --line:#333;
-          --up:#3fbf72; --down:#ef6b5f; --s0:#7b9cff; --s1:#ff8a4c; --s2:#3fcfa8; --s3:#d38cf0; --bench:#8f8f8f; } }
+          --up:#3fbf72; --down:#ef6b5f; --s0:#7b9cff; --s1:#ff8a4c; --s2:#3fcfa8; --s3:#d38cf0; --s4:#e6c14a; --bench:#8f8f8f; } }
   * { box-sizing:border-box; }
   body { margin:0; background:var(--bg); color:var(--fg); font:15px/1.45 system-ui, -apple-system, sans-serif; }
   main { max-width:1040px; margin:0 auto; padding:24px 16px 48px; }
@@ -42,6 +42,8 @@
     <div class="legend" id="legend"></div>
   </div>
 
+  <div class="card" id="ai" style="margin-top:10px"></div>
+
   <h2>Leaderboard</h2>
   <div class="card" id="board"></div>
 
@@ -50,6 +52,15 @@
   <div class="card" id="open"></div>
   <div style="height:10px"></div>
   <div class="card" id="trades"></div>
+
+  <h2>Backtest: the four coded bots replayed over the last ~2 months</h2>
+  <div class="card">
+    <div class="sub" id="btsub">Loading…</div>
+    <svg id="btchart" viewBox="0 0 900 260" preserveAspectRatio="none" role="img" aria-label="Backtest equity over time"></svg>
+    <div class="legend" id="btlegend"></div>
+  </div>
+  <div style="height:10px"></div>
+  <div class="card" id="btboard"></div>
 
   <h2>Daily summaries</h2>
   <div class="card" id="daily"></div>
@@ -65,13 +76,15 @@ const table = (head, rows) => rows.length
   ? `<table><tr>${head.map(h => `<th>${h}</th>`).join("")}</tr>${rows.map(r => `<tr>${r.map(c => `<td>${c}</td>`).join("")}</tr>`).join("")}</table>`
   : `<div class="empty">None yet.</div>`;
 const DESC = {"Original": "Momentum, tight stops", "Trend+": "Momentum, wide trailing stops, market filter",
-              "Long/Short": "Trend+ that also bets on falls", "Dip buyer": "Buys oversold dips in uptrends"};
+              "Long/Short": "Trend+ that also bets on falls", "Dip buyer": "Buys oversold dips in uptrends",
+              "Claude AI": "Claude reads the markets and news hourly and decides"};
+const nm = (s, sym) => (s.names || {})[sym] || sym;
 let state, pick = null;
 
-function chart(s) {
-  const svg = document.getElementById("chart"), H = s.history, n = s.series.length;
-  const bots = Object.keys(s.bots);
-  document.getElementById("legend").innerHTML = s.series.map((name, i) => i < bots.length
+function chart(s, svgId = "chart", legendId = "legend") {
+  const svg = document.getElementById(svgId), H = s.history, n = s.series.length;
+  const bots = s.series.filter(x => s.bots[x]);
+  document.getElementById(legendId).innerHTML = s.series.map((name, i) => i < bots.length
     ? `<span><i style="background:${color(i)}"></i>${name}</span>` : `<span><i class="dash"></i>${name}${i === bots.length + 1 ? " (dotted)" : ""}</span>`).join("");
   if (H.length < 2) { svg.innerHTML = `<text x="450" y="130" text-anchor="middle" fill="var(--mute)" font-size="14">The line appears after the second run (about 15 minutes).</text>`; return; }
   const vals = H.flatMap(r => r.slice(1).filter(v => v != null)).concat(s.start_cash);
@@ -92,9 +105,9 @@ function chart(s) {
 }
 
 function stats(s, name, idx) {
-  const b = s.bots[name], eq = s.history.length ? s.history[s.history.length - 1][idx + 1] : b.cash;
+  const b = s.bots[name], eq = (s.history.length ? s.history[s.history.length - 1][idx + 1] : null) ?? s.start_cash;
   let peak = s.start_cash, dd = 0;
-  s.history.forEach(r => { const v = r[idx + 1]; peak = Math.max(peak, v); dd = Math.max(dd, (peak - v) / peak); });
+  s.history.forEach(r => { const v = r[idx + 1]; if (v == null) return; peak = Math.max(peak, v); dd = Math.max(dd, (peak - v) / peak); });
   const wins = b.trades.filter(t => t.pnl > 0), losses = b.trades.filter(t => t.pnl <= 0);
   const avg = a => a.length ? a.reduce((x, t) => x + t.pnl, 0) / a.length : null;
   const byMkt = {}; b.trades.forEach(t => byMkt[t.pair] = (byMkt[t.pair] || 0) + t.pnl);
@@ -111,20 +124,32 @@ function render() {
     Market trend: crypto <span class="pill">${reg.crypto ?? "?"}</span> stocks <span class="pill">${reg.stock ?? "?"}</span>`;
   chart(s);
 
+  board(s, "board");
+  const ai = s.ai || {};
+  document.getElementById("ai").innerHTML = `<b><span class="dot" style="background:var(--s4)"></span>Claude AI's latest view</b>
+    <div class="sub" style="margin-top:4px">${ai.summary ? `${when(ai.at)}: ${ai.summary.replace(/</g, "&lt;")}` : "No orders from Claude yet: it checks in every hour."}</div>`;
+  renderDetails();
+}
+
+function board(s, id) {
+  const bots = s.series.filter(x => s.bots[x]);
   const rows = bots.map((name, i) => [name, i, stats(s, name, i)]).sort((a, c) => c[2].eq - a[2].eq);
   const benchRow = (name, j) => { const v = s.history.length ? s.history[s.history.length - 1][bots.length + 1 + j] : null;
     return v == null ? null : [`<span class="dot" style="background:var(--bench)"></span>${name}`, gbp(v),
       `<span class="${cls(v - s.start_cash)}">${sgn(v - s.start_cash)}</span>`, "", "", "", "", "", "", ""]; };
-  document.getElementById("board").innerHTML = table(
+  document.getElementById(id).innerHTML = table(
     ["Bot", "Equity", "P/L", "Biggest drop", "Trades", "Win rate", "Avg win", "Avg loss", "Fees", "Best / worst market"],
     rows.map(([name, i, st]) => [
       `<span class="dot" style="background:${color(i)}"></span>${name}<div class="sub">${DESC[name] || ""}</div>`,
       gbp(st.eq), `<span class="${cls(st.pnl)}">${sgn(st.pnl)} (${(100 * st.pnl / s.start_cash).toFixed(2)}%)</span>`,
       `${(100 * st.dd).toFixed(1)}%`, st.n, st.win == null ? "–" : Math.round(100 * st.win) + "%",
       st.aw == null ? "–" : `<span class="up">${gbp(st.aw)}</span>`, st.al == null ? "–" : `<span class="down">${gbp(st.al)}</span>`,
-      gbp(st.fees), st.best ? `${st.best[0]} ${sgn(st.best[1])}${st.worst ? ` / ${st.worst[0]} ${sgn(st.worst[1])}` : ""}` : "–",
+      gbp(st.fees), st.best ? `${nm(s, st.best[0])} ${sgn(st.best[1])}${st.worst ? ` / ${nm(s, st.worst[0])} ${sgn(st.worst[1])}` : ""}` : "–",
     ]).concat([benchRow("BTC buy &amp; hold", 0), benchRow("SPY buy &amp; hold", 1)].filter(Boolean)));
+}
 
+function renderDetails() {
+  const s = state, bots = Object.keys(s.bots);
   document.getElementById("tabs").innerHTML = bots.map((name, i) =>
     `<button aria-pressed="${name === pick}" data-bot="${name}"><span class="dot" style="background:${color(i)}"></span>${name}</button>`).join("");
   const b = s.bots[pick];
@@ -132,11 +157,11 @@ function render() {
     Object.entries(b.positions).map(([sym, p]) => {
       const now = s.last_prices[sym] ?? p.entry, val = p.qty * (p.entry + p.side * (now - p.entry)), pl = val - p.cost;
       const trailed = p.stop !== p.stop0 ? " ↑" : "";
-      return [sym, p.side > 0 ? "Long" : "Short", when(p.opened), px(p.entry), px(now), px(p.stop) + trailed, px(p.tp), gbp(val),
+      return [nm(s, sym) + (p.note ? `<div class="sub">${p.note}</div>` : ""), p.side > 0 ? "Long" : "Short", when(p.opened), px(p.entry), px(now), px(p.stop) + trailed, px(p.tp), gbp(val),
               `<span class="${cls(pl)}">${sgn(pl)}</span>`];
     }));
   document.getElementById("trades").innerHTML = `<b>Closed trades</b>` + table(["Market", "Side", "Closed", "Entry", "Exit", "Why", "P/L", "%"],
-    b.trades.slice().reverse().slice(0, 100).map(t => [t.pair, t.side > 0 ? "Long" : "Short", when(t.closed), px(t.entry), px(t.exit), t.why,
+    b.trades.slice().reverse().slice(0, 100).map(t => [nm(s, t.pair), t.side > 0 ? "Long" : "Short", when(t.closed), px(t.entry), px(t.exit), t.why,
       `<span class="${cls(t.pnl)}">${sgn(t.pnl)}</span>`, `<span class="${cls(t.pct)}">${t.pct}%</span>`]));
 
   document.getElementById("daily").innerHTML = s.daily.length ? table(["Day"].concat(bots),
@@ -144,6 +169,15 @@ function render() {
       return r ? `${gbp(r.equity)} <span class="${cls(r.change)}">${sgn(r.change)}</span><div class="sub">${r.trades} trades, ${r.wins} wins</div>` : "–"; }))))
     : `<div class="empty">The first summary appears after midnight (UK time).</div>`;
 }
+
+async function loadBacktest() {
+  try {
+    const bt = await (await fetch("backtest.json?" + Date.now())).json();
+    document.getElementById("btsub").textContent = `${when(bt.from)} to ${when(bt.to)} (${bt.days} days), same rules, fees and slippage as live. Claude AI can't be replayed.`;
+    chart(bt, "btchart", "btlegend"); board(bt, "btboard");
+  } catch { document.getElementById("btsub").textContent = "No backtest yet."; }
+}
+loadBacktest();
 
 document.getElementById("tabs").addEventListener("click", e => {
   const btn = e.target.closest("button"); if (btn) { pick = btn.dataset.bot; render(); }

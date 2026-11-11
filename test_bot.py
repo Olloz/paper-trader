@@ -51,7 +51,7 @@ log, _ = bot.step(s, {"X": cs + up + [dip]}, now + 6 * G + 60, {"t": cfg})
 assert "trailing stop" in log[0] and b["trades"][-1]["pnl"] > 0, (log, b["trades"])
 
 # 3. short: downtrend opens a short, price falls to target -> profit
-cfg = dict(BASE, shorts=True)
+cfg = dict(BASE, shorts=True, tp=10)  # wide target so profit clears fees + slippage
 down = trend(step=-0.3, start=200)
 s, b, log = run(cfg, down, now)
 assert log and "SHORT X" in log[0], log
@@ -69,4 +69,26 @@ s = bot.new_state(0)
 assert bot.daily_summary(s, {}, 1794355200) is None          # first day: just records the start
 assert "Daily summary" in bot.daily_summary(s, {}, 1794355200 + 86400)
 assert bot.daily_summary(s, {}, 1794355200 + 86400 + 60) is None
+# 6. slippage: a long fills above the quoted price
+s, b, _ = run(BASE, cs, now)
+assert b["positions"]["X"]["entry"] > cs[-1]["c"]
+
+# 7. Claude AI orders: applied once, % stops from fill, bad and stale orders rejected
+AI = {bot.AI: dict(style="ai")}
+s = bot.new_state(0); s["bots"] = {}
+orders = {"id": "o1", "created": now, "summary": "test", "orders": [
+    {"action": "open", "symbol": "X", "side": "long", "stop_pct": 3, "target_pct": 6, "size_pct": 10, "reason": "r"},
+    {"action": "open", "symbol": "NOPE", "side": "long", "stop_pct": 3, "target_pct": 6},
+    {"action": "open", "symbol": "X", "side": "sideways"}]}
+log, _ = bot.step(s, {"X": cs}, now, AI, orders)
+b = s["bots"][bot.AI]; pos = b["positions"]["X"]
+assert "BUY X" in log[0] and "rejected NOPE" in log[1] and "malformed" in log[2], log
+assert abs(pos["stop"] / pos["entry"] - 0.97) < 1e-9 and abs(pos["tp"] / pos["entry"] - 1.06) < 1e-9
+assert abs(pos["cost"] - 1000 * 0.10 * (1 + bot.FEES["crypto"])) < 1e-6
+assert not bot.step(s, {"X": cs}, now + 60, AI, orders)[0]  # same id is never re-applied
+close = {"id": "o2", "created": now, "orders": [{"action": "close", "symbol": "X", "reason": "done"}]}
+log, _ = bot.step(s, {"X": cs}, now + 120, AI, close)
+assert "Claude: done" in log[0] and not b["positions"], log
+log, _ = bot.step(s, {"X": cs}, now + 180, AI, dict(orders, id="o3", created=now - 3 * 3600))
+assert "stale" in log[0] and not b["positions"], log
 print("ok")
