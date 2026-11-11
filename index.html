@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Paper Trader</title>
+<style>
+  :root { --bg:#f7f7f5; --card:#fff; --fg:#1a1a1a; --mute:#6b6b6b; --line:#e4e4e0; --up:#127a3e; --down:#c0352b; --accent:#2f5bd3; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#141414; --card:#1e1e1e; --fg:#ececec; --mute:#9a9a9a; --line:#333; --up:#3fbf72; --down:#ef6b5f; --accent:#7b9cff; } }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:15px/1.45 system-ui, -apple-system, sans-serif; }
+  main { max-width:960px; margin:0 auto; padding:24px 16px 48px; }
+  h1 { font-size:22px; margin:0 0 4px; } h2 { font-size:15px; margin:28px 0 8px; color:var(--mute); font-weight:600; }
+  .sub { color:var(--mute); font-size:13px; }
+  .kpis { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; margin-top:18px; }
+  .kpi { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:12px 14px; }
+  .kpi b { display:block; font-size:22px; font-variant-numeric:tabular-nums; }
+  .kpi span { color:var(--mute); font-size:12px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:12px; overflow-x:auto; }
+  svg { width:100%; height:220px; display:block; }
+  table { width:100%; border-collapse:collapse; font-size:13px; font-variant-numeric:tabular-nums; }
+  th, td { text-align:right; padding:6px 8px; border-bottom:1px solid var(--line); white-space:nowrap; }
+  th:first-child, td:first-child { text-align:left; } th { color:var(--mute); font-weight:600; }
+  .up { color:var(--up); } .down { color:var(--down); } .empty { color:var(--mute); padding:8px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Paper Trader</h1>
+  <div class="sub" id="sub">Loading…</div>
+  <div class="kpis" id="kpis"></div>
+  <h2>Equity (£)</h2>
+  <div class="card"><svg id="chart" viewBox="0 0 900 220" preserveAspectRatio="none" role="img" aria-label="Equity over time"></svg></div>
+  <h2>Open positions</h2>
+  <div class="card" id="open"></div>
+  <h2>Closed trades</h2>
+  <div class="card" id="trades"></div>
+</main>
+<script>
+const £ = v => "£" + v.toLocaleString("en-GB", {minimumFractionDigits:2, maximumFractionDigits:2});
+const px = v => v >= 1 ? v.toFixed(2) : v.toPrecision(4);
+const when = t => new Date(t * 1000).toLocaleString("en-GB", {day:"numeric", month:"short", hour:"2-digit", minute:"2-digit"});
+const cls = v => v >= 0 ? "up" : "down";
+const table = (head, rows) => rows.length
+  ? `<table><tr>${head.map(h => `<th>${h}</th>`).join("")}</tr>${rows.map(r => `<tr>${r.map(c => `<td>${c}</td>`).join("")}</tr>`).join("")}</table>`
+  : `<div class="empty">None yet.</div>`;
+
+function chart(hist, start) {
+  const svg = document.getElementById("chart");
+  if (hist.length < 2) { svg.innerHTML = ""; return; }
+  const ys = hist.map(h => h[1]).concat(start), lo = Math.min(...ys), hi = Math.max(...ys), pad = (hi - lo) * 0.1 || 1;
+  const t0 = hist[0][0], t1 = hist[hist.length - 1][0];
+  const X = t => (t - t0) / (t1 - t0 || 1) * 900, Y = v => 210 - (v - lo + pad) / (hi - lo + 2 * pad) * 200;
+  const d = hist.map((h, i) => (i ? "L" : "M") + X(h[0]).toFixed(1) + "," + Y(h[1]).toFixed(1)).join("");
+  svg.innerHTML = `<line x1="0" x2="900" y1="${Y(start)}" y2="${Y(start)}" stroke="var(--line)" stroke-dasharray="4 4"/>
+    <path d="${d}" fill="none" stroke="var(--accent)" stroke-width="2" vector-effect="non-scaling-stroke"/>`;
+}
+
+async function load() {
+  let s;
+  try { s = await (await fetch("state.json?" + Date.now())).json(); }
+  catch { document.getElementById("sub").textContent = "No data yet: the first run hasn't finished."; return; }
+  const eq = s.history.length ? s.history[s.history.length - 1][1] : s.cash, pnl = eq - s.start_cash;
+  const wins = s.trades.filter(t => t.pnl > 0).length;
+  document.getElementById("sub").textContent = `Simulated money only. Started ${when(s.started)}, last tick ${when(s.updated)}.`;
+  document.getElementById("kpis").innerHTML = [
+    [£(eq), "Equity"], [`<span class="${cls(pnl)}">${pnl >= 0 ? "+" : ""}${£(pnl)}</span>`, "Profit / loss"],
+    [`<span class="${cls(pnl)}">${(100 * pnl / s.start_cash).toFixed(2)}%</span>`, "Return"],
+    [£(s.cash), "Cash"], [s.trades.length ? `${Math.round(100 * wins / s.trades.length)}%` : "–", `Win rate (${s.trades.length} trades)`],
+  ].map(([v, l]) => `<div class="kpi"><b>${v}</b><span>${l}</span></div>`).join("");
+  chart(s.history, s.start_cash);
+  document.getElementById("open").innerHTML = table(["Market", "Opened", "Entry", "Now", "Stop", "Target", "Value", "P/L"],
+    Object.entries(s.positions).map(([sym, p]) => {
+      const now = s.last_prices[sym] ?? p.entry, val = p.qty * now, pl = val - p.cost;
+      return [sym, when(p.opened), px(p.entry), px(now), px(p.stop), px(p.tp), £(val), `<span class="${cls(pl)}">${£(pl)}</span>`];
+    }));
+  document.getElementById("trades").innerHTML = table(["Market", "Closed", "Entry", "Exit", "Why", "P/L", "%"],
+    s.trades.slice().reverse().map(t => [t.pair, when(t.closed), px(t.entry), px(t.exit), t.why,
+      `<span class="${cls(t.pnl)}">${£(t.pnl)}</span>`, `<span class="${cls(t.pct)}">${t.pct}%</span>`]));
+}
+load(); setInterval(load, 60000);
+</script>
+</body>
+</html>
