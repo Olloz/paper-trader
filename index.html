@@ -5,78 +5,155 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Paper Trader</title>
 <style>
-  :root { --bg:#f7f7f5; --card:#fff; --fg:#1a1a1a; --mute:#6b6b6b; --line:#e4e4e0; --up:#127a3e; --down:#c0352b; --accent:#2f5bd3; }
-  @media (prefers-color-scheme: dark) { :root { --bg:#141414; --card:#1e1e1e; --fg:#ececec; --mute:#9a9a9a; --line:#333; --up:#3fbf72; --down:#ef6b5f; --accent:#7b9cff; } }
-  * { box-sizing: border-box; }
+  :root { --bg:#f7f7f5; --card:#fff; --fg:#1a1a1a; --mute:#6b6b6b; --line:#e4e4e0; --up:#127a3e; --down:#c0352b;
+          --s0:#2f5bd3; --s1:#d9480f; --s2:#0c8a6e; --s3:#9c36b5; --bench:#8a8a8a; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#141414; --card:#1e1e1e; --fg:#ececec; --mute:#9a9a9a; --line:#333;
+          --up:#3fbf72; --down:#ef6b5f; --s0:#7b9cff; --s1:#ff8a4c; --s2:#3fcfa8; --s3:#d38cf0; --bench:#8f8f8f; } }
+  * { box-sizing:border-box; }
   body { margin:0; background:var(--bg); color:var(--fg); font:15px/1.45 system-ui, -apple-system, sans-serif; }
-  main { max-width:960px; margin:0 auto; padding:24px 16px 48px; }
+  main { max-width:1040px; margin:0 auto; padding:24px 16px 48px; }
   h1 { font-size:22px; margin:0 0 4px; } h2 { font-size:15px; margin:28px 0 8px; color:var(--mute); font-weight:600; }
   .sub { color:var(--mute); font-size:13px; }
-  .kpis { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; margin-top:18px; }
-  .kpi { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:12px 14px; }
-  .kpi b { display:block; font-size:22px; font-variant-numeric:tabular-nums; }
-  .kpi span { color:var(--mute); font-size:12px; }
   .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:12px; overflow-x:auto; }
-  svg { width:100%; height:220px; display:block; }
+  svg { width:100%; height:260px; display:block; }
+  .legend { display:flex; flex-wrap:wrap; gap:6px 16px; font-size:13px; margin-top:8px; }
+  .legend i { display:inline-block; width:14px; height:3px; border-radius:2px; vertical-align:middle; margin-right:6px; }
+  .legend i.dash { background:repeating-linear-gradient(90deg,var(--bench) 0 4px,transparent 4px 7px) !important; }
   table { width:100%; border-collapse:collapse; font-size:13px; font-variant-numeric:tabular-nums; }
   th, td { text-align:right; padding:6px 8px; border-bottom:1px solid var(--line); white-space:nowrap; }
   th:first-child, td:first-child { text-align:left; } th { color:var(--mute); font-weight:600; }
   .up { color:var(--up); } .down { color:var(--down); } .empty { color:var(--mute); padding:8px; }
+  .tabs { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:10px; }
+  .tabs button { font:inherit; font-size:13px; border:1px solid var(--line); background:var(--card); color:var(--fg);
+                 border-radius:999px; padding:5px 12px; cursor:pointer; }
+  .tabs button[aria-pressed="true"] { background:var(--fg); color:var(--bg); border-color:var(--fg); }
+  .dot { display:inline-block; width:9px; height:9px; border-radius:50%; margin-right:7px; }
+  .pill { font-size:12px; padding:2px 8px; border-radius:999px; border:1px solid var(--line); margin-left:6px; }
 </style>
 </head>
 <body>
 <main>
   <h1>Paper Trader</h1>
   <div class="sub" id="sub">Loading…</div>
-  <div class="kpis" id="kpis"></div>
-  <h2>Equity (£)</h2>
-  <div class="card"><svg id="chart" viewBox="0 0 900 220" preserveAspectRatio="none" role="img" aria-label="Equity over time"></svg></div>
-  <h2>Open positions</h2>
+
+  <h2>The race: equity (£), each bot started with £1000</h2>
+  <div class="card">
+    <svg id="chart" viewBox="0 0 900 260" preserveAspectRatio="none" role="img" aria-label="Equity of each bot and benchmarks over time"></svg>
+    <div class="legend" id="legend"></div>
+  </div>
+
+  <h2>Leaderboard</h2>
+  <div class="card" id="board"></div>
+
+  <h2>Bot details</h2>
+  <div class="tabs" id="tabs" role="group" aria-label="Choose bot"></div>
   <div class="card" id="open"></div>
-  <h2>Closed trades</h2>
+  <div style="height:10px"></div>
   <div class="card" id="trades"></div>
+
+  <h2>Daily summaries</h2>
+  <div class="card" id="daily"></div>
 </main>
 <script>
-const gbp = v => "£" + v.toLocaleString("en-GB", {minimumFractionDigits:2, maximumFractionDigits:2});
+const gbp = v => (v < 0 ? "-£" : "£") + Math.abs(v).toLocaleString("en-GB", {minimumFractionDigits:2, maximumFractionDigits:2});
+const sgn = v => (v >= 0 ? "+" : "") + gbp(v);
 const px = v => v >= 1 ? v.toFixed(2) : v.toPrecision(4);
 const when = t => new Date(t * 1000).toLocaleString("en-GB", {day:"numeric", month:"short", hour:"2-digit", minute:"2-digit"});
 const cls = v => v >= 0 ? "up" : "down";
+const color = i => `var(--s${i})`;
 const table = (head, rows) => rows.length
   ? `<table><tr>${head.map(h => `<th>${h}</th>`).join("")}</tr>${rows.map(r => `<tr>${r.map(c => `<td>${c}</td>`).join("")}</tr>`).join("")}</table>`
   : `<div class="empty">None yet.</div>`;
+const DESC = {"Original": "Momentum, tight stops", "Trend+": "Momentum, wide trailing stops, market filter",
+              "Long/Short": "Trend+ that also bets on falls", "Dip buyer": "Buys oversold dips in uptrends"};
+let state, pick = null;
 
-function chart(hist, start) {
-  const svg = document.getElementById("chart");
-  if (hist.length < 2) { svg.innerHTML = ""; return; }
-  const ys = hist.map(h => h[1]).concat(start), lo = Math.min(...ys), hi = Math.max(...ys), pad = (hi - lo) * 0.1 || 1;
-  const t0 = hist[0][0], t1 = hist[hist.length - 1][0];
-  const X = t => (t - t0) / (t1 - t0 || 1) * 900, Y = v => 210 - (v - lo + pad) / (hi - lo + 2 * pad) * 200;
-  const d = hist.map((h, i) => (i ? "L" : "M") + X(h[0]).toFixed(1) + "," + Y(h[1]).toFixed(1)).join("");
-  svg.innerHTML = `<line x1="0" x2="900" y1="${Y(start)}" y2="${Y(start)}" stroke="var(--line)" stroke-dasharray="4 4"/>
-    <path d="${d}" fill="none" stroke="var(--accent)" stroke-width="2" vector-effect="non-scaling-stroke"/>`;
+function chart(s) {
+  const svg = document.getElementById("chart"), H = s.history, n = s.series.length;
+  const bots = Object.keys(s.bots);
+  document.getElementById("legend").innerHTML = s.series.map((name, i) => i < bots.length
+    ? `<span><i style="background:${color(i)}"></i>${name}</span>` : `<span><i class="dash"></i>${name}${i === bots.length + 1 ? " (dotted)" : ""}</span>`).join("");
+  if (H.length < 2) { svg.innerHTML = `<text x="450" y="130" text-anchor="middle" fill="var(--mute)" font-size="14">The line appears after the second run (about 15 minutes).</text>`; return; }
+  const vals = H.flatMap(r => r.slice(1).filter(v => v != null)).concat(s.start_cash);
+  const lo = Math.min(...vals), hi = Math.max(...vals), pad = (hi - lo) * 0.1 || 1;
+  const t0 = H[0][0], t1 = H[H.length - 1][0];
+  const X = t => 40 + (t - t0) / (t1 - t0 || 1) * 855, Y = v => 250 - (v - lo + pad) / (hi - lo + 2 * pad) * 240;
+  let out = `<line x1="40" x2="895" y1="${Y(s.start_cash)}" y2="${Y(s.start_cash)}" stroke="var(--line)"/>
+    <text x="0" y="${Y(hi) + 4}" fill="var(--mute)" font-size="11">£${Math.round(hi)}</text>
+    <text x="0" y="${Y(lo) + 4}" fill="var(--mute)" font-size="11">£${Math.round(lo)}</text>`;
+  for (let i = n - 1; i >= 0; i--) {  // benchmarks first so bots draw on top
+    let d = "";
+    H.forEach(r => { const v = r[i + 1]; if (v != null) d += (d ? "L" : "M") + X(r[0]).toFixed(1) + "," + Y(v).toFixed(1); });
+    const bench = i >= bots.length;
+    out += `<path d="${d}" fill="none" stroke="${bench ? "var(--bench)" : color(i)}" stroke-width="${bench ? 1.5 : 2.2}"
+      ${bench ? `stroke-dasharray="${i === bots.length ? "6 4" : "2 3"}"` : ""} vector-effect="non-scaling-stroke"/>`;
+  }
+  svg.innerHTML = out;
 }
 
-async function load() {
-  let s;
-  try { s = await (await fetch("state.json?" + Date.now())).json(); }
-  catch { document.getElementById("sub").textContent = "No data yet: the first run hasn't finished."; return; }
-  const eq = s.history.length ? s.history[s.history.length - 1][1] : s.cash, pnl = eq - s.start_cash;
-  const wins = s.trades.filter(t => t.pnl > 0).length;
-  document.getElementById("sub").textContent = `Simulated money only. Started ${when(s.started)}, last tick ${when(s.updated)}.`;
-  document.getElementById("kpis").innerHTML = [
-    [gbp(eq), "Equity"], [`<span class="${cls(pnl)}">${pnl >= 0 ? "+" : ""}${gbp(pnl)}</span>`, "Profit / loss"],
-    [`<span class="${cls(pnl)}">${(100 * pnl / s.start_cash).toFixed(2)}%</span>`, "Return"],
-    [gbp(s.cash), "Cash"], [s.trades.length ? `${Math.round(100 * wins / s.trades.length)}%` : "–", `Win rate (${s.trades.length} trades)`],
-  ].map(([v, l]) => `<div class="kpi"><b>${v}</b><span>${l}</span></div>`).join("");
-  chart(s.history, s.start_cash);
-  document.getElementById("open").innerHTML = table(["Market", "Opened", "Entry", "Now", "Stop", "Target", "Value", "P/L"],
-    Object.entries(s.positions).map(([sym, p]) => {
-      const now = s.last_prices[sym] ?? p.entry, val = p.qty * now, pl = val - p.cost;
-      return [sym, when(p.opened), px(p.entry), px(now), px(p.stop), px(p.tp), gbp(val), `<span class="${cls(pl)}">${gbp(pl)}</span>`];
+function stats(s, name, idx) {
+  const b = s.bots[name], eq = s.history.length ? s.history[s.history.length - 1][idx + 1] : b.cash;
+  let peak = s.start_cash, dd = 0;
+  s.history.forEach(r => { const v = r[idx + 1]; peak = Math.max(peak, v); dd = Math.max(dd, (peak - v) / peak); });
+  const wins = b.trades.filter(t => t.pnl > 0), losses = b.trades.filter(t => t.pnl <= 0);
+  const avg = a => a.length ? a.reduce((x, t) => x + t.pnl, 0) / a.length : null;
+  const byMkt = {}; b.trades.forEach(t => byMkt[t.pair] = (byMkt[t.pair] || 0) + t.pnl);
+  const mk = Object.entries(byMkt).sort((a, c) => c[1] - a[1]);
+  return {eq, pnl: eq - s.start_cash, dd, n: b.trades.length, win: b.trades.length ? wins.length / b.trades.length : null,
+          aw: avg(wins), al: avg(losses), fees: b.fees, best: mk[0], worst: mk.length > 1 ? mk[mk.length - 1] : null};
+}
+
+function render() {
+  const s = state, bots = Object.keys(s.bots);
+  if (!pick) pick = bots[0];
+  const reg = s.regimes || {};
+  document.getElementById("sub").innerHTML = `Simulated money only. Started ${when(s.started)}, last run ${when(s.updated)}.
+    Market trend: crypto <span class="pill">${reg.crypto ?? "?"}</span> stocks <span class="pill">${reg.stock ?? "?"}</span>`;
+  chart(s);
+
+  const rows = bots.map((name, i) => [name, i, stats(s, name, i)]).sort((a, c) => c[2].eq - a[2].eq);
+  const benchRow = (name, j) => { const v = s.history.length ? s.history[s.history.length - 1][bots.length + 1 + j] : null;
+    return v == null ? null : [`<span class="dot" style="background:var(--bench)"></span>${name}`, gbp(v),
+      `<span class="${cls(v - s.start_cash)}">${sgn(v - s.start_cash)}</span>`, "", "", "", "", "", "", ""]; };
+  document.getElementById("board").innerHTML = table(
+    ["Bot", "Equity", "P/L", "Biggest drop", "Trades", "Win rate", "Avg win", "Avg loss", "Fees", "Best / worst market"],
+    rows.map(([name, i, st]) => [
+      `<span class="dot" style="background:${color(i)}"></span>${name}<div class="sub">${DESC[name] || ""}</div>`,
+      gbp(st.eq), `<span class="${cls(st.pnl)}">${sgn(st.pnl)} (${(100 * st.pnl / s.start_cash).toFixed(2)}%)</span>`,
+      `${(100 * st.dd).toFixed(1)}%`, st.n, st.win == null ? "–" : Math.round(100 * st.win) + "%",
+      st.aw == null ? "–" : `<span class="up">${gbp(st.aw)}</span>`, st.al == null ? "–" : `<span class="down">${gbp(st.al)}</span>`,
+      gbp(st.fees), st.best ? `${st.best[0]} ${sgn(st.best[1])}${st.worst ? ` / ${st.worst[0]} ${sgn(st.worst[1])}` : ""}` : "–",
+    ]).concat([benchRow("BTC buy &amp; hold", 0), benchRow("SPY buy &amp; hold", 1)].filter(Boolean)));
+
+  document.getElementById("tabs").innerHTML = bots.map((name, i) =>
+    `<button aria-pressed="${name === pick}" data-bot="${name}"><span class="dot" style="background:${color(i)}"></span>${name}</button>`).join("");
+  const b = s.bots[pick];
+  document.getElementById("open").innerHTML = `<b>Open positions</b>` + table(["Market", "Side", "Opened", "Entry", "Now", "Stop", "Target", "Value", "P/L"],
+    Object.entries(b.positions).map(([sym, p]) => {
+      const now = s.last_prices[sym] ?? p.entry, val = p.qty * (p.entry + p.side * (now - p.entry)), pl = val - p.cost;
+      const trailed = p.stop !== p.stop0 ? " ↑" : "";
+      return [sym, p.side > 0 ? "Long" : "Short", when(p.opened), px(p.entry), px(now), px(p.stop) + trailed, px(p.tp), gbp(val),
+              `<span class="${cls(pl)}">${sgn(pl)}</span>`];
     }));
-  document.getElementById("trades").innerHTML = table(["Market", "Closed", "Entry", "Exit", "Why", "P/L", "%"],
-    s.trades.slice().reverse().map(t => [t.pair, when(t.closed), px(t.entry), px(t.exit), t.why,
-      `<span class="${cls(t.pnl)}">${gbp(t.pnl)}</span>`, `<span class="${cls(t.pct)}">${t.pct}%</span>`]));
+  document.getElementById("trades").innerHTML = `<b>Closed trades</b>` + table(["Market", "Side", "Closed", "Entry", "Exit", "Why", "P/L", "%"],
+    b.trades.slice().reverse().slice(0, 100).map(t => [t.pair, t.side > 0 ? "Long" : "Short", when(t.closed), px(t.entry), px(t.exit), t.why,
+      `<span class="${cls(t.pnl)}">${sgn(t.pnl)}</span>`, `<span class="${cls(t.pct)}">${t.pct}%</span>`]));
+
+  document.getElementById("daily").innerHTML = s.daily.length ? table(["Day"].concat(bots),
+    s.daily.slice().reverse().map(d => [d.day].concat(bots.map(n => { const r = d.bots[n];
+      return r ? `${gbp(r.equity)} <span class="${cls(r.change)}">${sgn(r.change)}</span><div class="sub">${r.trades} trades, ${r.wins} wins</div>` : "–"; }))))
+    : `<div class="empty">The first summary appears after midnight (UK time).</div>`;
+}
+
+document.getElementById("tabs").addEventListener("click", e => {
+  const btn = e.target.closest("button"); if (btn) { pick = btn.dataset.bot; render(); }
+});
+
+async function load() {
+  try { state = await (await fetch("state.json?" + Date.now())).json(); }
+  catch { document.getElementById("sub").textContent = "No data yet: the first run hasn't finished."; return; }
+  if (!state.bots) { document.getElementById("sub").textContent = "Upgrading… the new version starts on the next run."; return; }
+  render();
 }
 load(); setInterval(load, 60000);
 </script>
