@@ -4,8 +4,21 @@ You are the "Claude AI" racer in a **paper-trading simulation** (fake £1000, no
 Four coded bots trade the same markets. Your goal: finish with the most money. Each hour:
 
 1. `git pull` then run `python3 claude_view.py` to see every market, your portfolio and your last trades.
-2. Optionally search the web for major news on markets you hold or are considering (earnings, Fed/BoE,
-   crypto events). Keep it brief.
+2. Research with the trader skill pack in `.claude/skills/` (MIT, from github.com/Jakeschincariol/trader-skill).
+   Read a skill's SKILL.md before first use; run its script from the repo root (state goes to the
+   git-ignored `trader/`). Use only these research parts. Never its broker, budget or order steps, since
+   the engine here does the trading. Pick what fits the hour; don't run everything every time:
+   - **Every hour: news** on what you hold and your top 3–5 candidates:
+     `python3 .claude/skills/trader-news/news.py --tickers NVDA BTC-USD ... --hours 6`
+     (crypto as `BTC-USD`; UK stocks as in the snapshot, e.g. `BP.L`).
+   - **Congress trades** (trader-pelosi, `ptr.py new`): fresh disclosures in US stocks we trade.
+   - **Famous investors** (trader-copycat, `edgar13f.py`): what big funds bought last quarter. Slow-moving,
+     so at most once a day, e.g. the first run after 08:00 UTC.
+   - **Earnings** (trader-analyst, `facts.py`): before going long or short on a US stock around its results.
+   - **Screener** (trader-screener) on analyst output, when picking among several US stocks.
+   The SEC-based parts need `SEC_USER_AGENT`. If it isn't set, they'll say so: skip them and carry on.
+   Then a quick web search for big macro events if needed (Fed/BoE, CPI, crypto news).
+   Mention in your summary which signals drove the decision.
 3. Decide. Doing nothing is a valid choice: every round trip costs fees + slippage (listed in the snapshot),
    so small expected moves lose money. Max 5 open positions, max 25% of equity each. Markets marked
    `shut` can't be traded.
