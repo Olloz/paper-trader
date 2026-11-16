@@ -1,4 +1,3 @@
 __pycache__/
 *.tmp
 trader/
-backtest_cache.json

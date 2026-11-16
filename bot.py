@@ -42,16 +42,11 @@ BENCH = ["BTC", "SPY"]
 AI = "Claude AI"
 AI_ORDER_MAX_AGE = 2 * HOUR
 
-# Tuned on a 59-day backtest (Nov 2026) to trade far less: hourly signals, targets that must beat costs
-# several times over (min_edge), wide stops, a day's cooldown per market. Original is the untouched control.
 BOTS = {
     "Original":   dict(style="trend", atr=GRAN, stop=2.0, tp=3.0, trail=False, filter=False, shorts=False),
-    "Trend+":     dict(style="trend", tf=HOUR, atr=HOUR, stop=3.0, tp=9.0, trail=True, trail_atr=5.0,
-                       filter=True, shorts=False, cooldown=24 * HOUR, min_edge=8),
-    "Long/Short": dict(style="trend", tf=HOUR, atr=HOUR, stop=4.0, tp=12.0, trail=True, trail_atr=6.0,
-                       filter=True, shorts=True, cooldown=24 * HOUR, min_edge=10),
-    "Dip buyer":  dict(style="revert", atr=HOUR, stop=2.0, tp=3.0, trail=False, filter=True, shorts=False,
-                       dip_rsi=25, cooldown=12 * HOUR, min_edge=3),
+    "Trend+":     dict(style="trend", atr=HOUR, stop=2.0, tp=4.0, trail=True, filter=True, shorts=False),
+    "Long/Short": dict(style="trend", atr=HOUR, stop=2.0, tp=4.0, trail=True, filter=True, shorts=True),
+    "Dip buyer":  dict(style="revert", atr=HOUR, stop=1.5, tp=2.0, trail=False, filter=True, shorts=False),
     AI:           dict(style="ai"),
 }
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -161,11 +156,11 @@ def features(cs, now):
     hs = hourly(closed)
     hc = [h["c"] for h in hs]
     f = dict(c=closes[-1], r=rsi(closes), e20=ema(closes, 20)[-1], e50=ema(closes, 50)[-1], atr15=atr(closed),
-             atr1h=atr(hs) if len(hs) >= 16 else None, he20=None, he50=None, hr=None, trend=None, since=closed[-1]["t"] + GRAN,
+             atr1h=atr(hs) if len(hs) >= 16 else None, he50=None, trend=None, since=cs[-1]["t"],
              chg1h=closes[-1] / closes[-5] - 1, chg24h=closes[-1] / closes[max(-97, -len(closes))] - 1)
     if len(hs) >= 50:
-        f["he20"], f["he50"], f["hr"] = ema(hc, 20)[-1], ema(hc, 50)[-1], rsi(hc)
-        f["trend"] = "up" if f["he20"] > f["he50"] else "down"
+        f["he50"] = ema(hc, 50)[-1]
+        f["trend"] = "up" if ema(hc, 20)[-1] > f["he50"] else "down"
     return f
 
 
@@ -183,7 +178,7 @@ def new_bot():
 def new_state(now):
     return {"start_cash": START_CASH, "started": now, "bots": {n: new_bot() for n in BOTS},
             "series": list(BOTS) + ["BTC hold", "SPY hold"], "history": [], "bench": {}, "names": NAMES,
-            "daily": [], "day_start": {}, "last_day": None, "ai": {}}
+            "log": [], "daily": [], "day_start": {}, "last_day": None, "ai": {}}
 
 
 def value(pos, px):
@@ -256,47 +251,39 @@ def check_stops(bot, sym, cs, now):
 
 def step_rules(cfg, bot, feats, now):
     log, candidates = [], []
-    hourly_sig = cfg.get("tf") == HOUR
     for sym, f in feats.items():
-        c = f["c"]
-        if hourly_sig:  # judge trend and momentum on hourly candles: fewer, slower signals
-            if f["he50"] is None:
-                continue
-            fast, slow, r = f["he20"], f["he50"], f["hr"]
-        else:
-            fast, slow, r = f["e20"], f["e50"], f["r"]
+        c, r = f["c"], f["r"]
         pos = bot["positions"].get(sym)
         if pos:  # strategy exits
-            if cfg["style"] == "trend" and (fast - slow) * pos["side"] < 0:
+            if cfg["style"] == "trend" and (f["e20"] - f["e50"]) * pos["side"] < 0:
                 log.append(close_pos(bot, sym, c, "trend reversed", now))
-            elif cfg["style"] == "revert" and f["r"] > 55:
+            elif cfg["style"] == "revert" and r > 55:
                 log.append(close_pos(bot, sym, c, "bounced back", now))
             continue
-        if now - bot["last_exit"].get(sym, 0) < cfg.get("cooldown", COOLDOWN):
+        if now - bot["last_exit"].get(sym, 0) < COOLDOWN:
             continue
         reg = regime(sym, feats)
         ok_long = not cfg["filter"] or reg == "up"
         ok_short = cfg["shorts"] and (not cfg["filter"] or reg == "down")
         side = 0
         if cfg["style"] == "trend":
-            if fast > slow and c > fast and 50 < r < 70 and ok_long:
+            if f["e20"] > f["e50"] and c > f["e20"] and 50 < r < 70 and ok_long:
                 side = 1
-            elif fast < slow and c < fast and 30 < r < 50 and ok_short:
+            elif f["e20"] < f["e50"] and c < f["e20"] and 30 < r < 50 and ok_short:
                 side = -1
-            strength = abs(fast / slow - 1)
+            strength = abs(f["e20"] / f["e50"] - 1)
         else:
-            if f["he50"] and f["r"] < cfg.get("dip_rsi", 30) and c > f["he50"] and ok_long:
+            if f["he50"] and r < 30 and c > f["he50"] and ok_long:
                 side = 1
-            strength = 30 - f["r"]
+            strength = 30 - r
         a = f["atr15"] if cfg["atr"] == GRAN else f["atr1h"]
-        # cost filter: the target must be worth several times the round trip's fees + slippage
-        if side and a and cfg["tp"] * a / c >= cfg.get("min_edge", 0) * 2 * (FEES[kind(sym)] + slip(sym)):
+        if side and a:
             candidates.append((strength, sym, side, c, a, f["since"]))
     for _, sym, side, c, a, since in sorted(candidates, reverse=True):  # strongest signals first
         if len(bot["positions"]) >= MAX_POSITIONS:
             break
         m = open_pos(bot, sym, side, c, c - side * cfg["stop"] * a, c + side * cfg["tp"] * a,
-                     cfg.get("trail_atr", cfg["stop"]) * a if cfg["trail"] else 0, now, since)
+                     cfg["stop"] * a if cfg["trail"] else 0, now, since)
         if m:
             log.append(m)
     return log
@@ -315,8 +302,6 @@ def step_ai(state, bot, feats, orders, now):
         if o.get("action") == "close":
             if sym in bot["positions"] and f:
                 log.append(close_pos(bot, sym, f["c"], "Claude: " + why, now))
-            else:
-                log.append("rejected close %s: not held, or market shut" % sym)
             continue
         try:
             side = {"long": 1, "short": -1}[o["side"]]
@@ -375,9 +360,7 @@ def step(state, data, now, bots=BOTS, orders=None):
             for b in BENCH]
     state["series"] = list(bots) + ["BTC hold", "SPY hold"]
     state["history"] = (state["history"] + [row])[-10000:]
-    for b in state["bots"].values():  # the dashboard shows this instead of re-deriving it
-        for s, p in b["positions"].items():
-            p["value"] = round(value(p, last.get(s, p["entry"])), 2)
+    state["log"] = (state["log"] + [[now, m] for m in log])[-500:]
     state.update(updated=now, last_prices=last, regimes={k: regime(s, feats) for k, s in REGIME_OF.items()})
     return log, daily_summary(state, last, now)
 
@@ -402,7 +385,7 @@ def load_state(now):
             state["bots"][n] = new_bot()
             i = 1 + list(state["bots"]).index(n)
             state["history"] = [r[:i] + [None] + r[i:] for r in state["history"]]
-    state.setdefault("ai", {}); state["names"] = NAMES; state.pop("log", None)
+    state.setdefault("ai", {}); state["names"] = NAMES
     return state
 
 
