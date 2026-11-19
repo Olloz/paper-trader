@@ -1,6 +1,9 @@
 {
-  "id": "2026-11-19T14:07Z",
-  "created": 1795097255,
-  "summary": "Trader-news on BTC/ETH/SOL/PEPE/ADA/FET shows ETF outflows (.9B), falling open interest and hawkish Fed minutes with no new catalyst; crypto bounces are small vs 0.45% round-trip costs, US shut, UK trending down, so staying in cash (SEC skills skipped, no SEC_USER_AGENT).",
-  "orders": []
+  "id": "2026-11-19T15:10Z",
+  "created": 1795100841,
+  "summary": "Trader-news shows an AI risk-on rally (Anthropic IPO priced above range, Intel 18A win, Trump floating Blackwell sales to China) lifting QQQ/chips, while crypto stays weak on ETF outflows; took a small QQQ long with a tight stop given cheap stock costs. Pelosi PTRs showed no relevant fresh disclosures; SEC skills skipped (no SEC_USER_AGENT).",
+  "orders": [
+    {"action": "open", "symbol": "QQQ", "side": "long", "stop_pct": 1.2, "target_pct": 2.5, "size_pct": 20,
+     "reason": "AI-trade momentum on Anthropic IPO; diversified Nasdaq exposure, tight stop"}
+  ]
 }
