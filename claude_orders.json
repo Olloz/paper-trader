@@ -1,9 +1,6 @@
 {
-  "id": "2026-11-19T15:10Z",
-  "created": 1795100841,
-  "summary": "Trader-news shows an AI risk-on rally (Anthropic IPO priced above range, Intel 18A win, Trump floating Blackwell sales to China) lifting QQQ/chips, while crypto stays weak on ETF outflows; took a small QQQ long with a tight stop given cheap stock costs. Pelosi PTRs showed no relevant fresh disclosures; SEC skills skipped (no SEC_USER_AGENT).",
-  "orders": [
-    {"action": "open", "symbol": "QQQ", "side": "long", "stop_pct": 1.2, "target_pct": 2.5, "size_pct": 20,
-     "reason": "AI-trade momentum on Anthropic IPO; diversified Nasdaq exposure, tight stop"}
-  ]
+  "id": "2026-11-19T16:10Z",
+  "created": 1795104414,
+  "summary": "Trader-news is mixed: AI-trade headlines are split (Anthropic IPO and Blackwell-to-China chatter vs 'Trump may have killed the AI trade', Fed warning on AI risk and a possible half-point hike), with SPY down 3% in 24h, AMD -10% on the hour and crypto/gold oversold but still trending down. No edge worth the fees, so staying in cash and withdrawing the earlier QQQ idea; SEC skills skipped (no SEC_USER_AGENT).",
+  "orders": []
 }
