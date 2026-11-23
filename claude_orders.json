@@ -1,1 +1,6 @@
-{"id": "2026-11-23T22:06Z", "created": 1795471571, "summary": "Trader-news on BTC/ETH/SOL/gold/oil shows no crypto catalyst (BTC down ~20% in Nov, bearish tone) and oil/gold drifting; Pelosi tracker shows only routine House PTRs with no flagged holdings. Stocks are shut and crypto RSI 34-45 with sub-fee edge, so staying in cash (SEC skills skipped, no SEC_USER_AGENT).", "orders": []}
+{
+  "id": "2026-11-23T23:05Z",
+  "created": 1795475155,
+  "summary": "Trader-news on BTC/ETH/SOL shows ETF outflows ($1.8B) and BTC down ~20% in Nov with no fresh catalyst; Pelosi tracker shows only routine House PTRs. Stocks shut and crypto bounce edge is below the 0.9% round-trip fee, so staying in cash (SEC skills skipped, no SEC_USER_AGENT).",
+  "orders": []
+}
