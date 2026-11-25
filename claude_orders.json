@@ -1,9 +1,9 @@
 {
-  "id": "2026-11-25T15:10Z",
-  "created": 1795619212,
-  "summary": "Trader-news on NVDA/AMD/AMZN/BTC/SPY: hot PCE inflation plus Fed-hike fears are driving a broad AI/tech selloff (Dow -700, chips wiped out), with every timeframe trending down. Small QQQ short (low fees) to ride the momentum with a tight stop; SEC skills skipped (no SEC_USER_AGENT).",
+  "id": "2026-11-25T16:10Z",
+  "created": 1795622821,
+  "summary": "Trader-news (QQQ/SPY/NVDA/AMD/BTC/oil): hot 3.8% inflation, tariff threat and Fed-hike odds are unwinding the AI trade (Nasdaq 100 near bear market, chips -7 to -10%), with 15m and 1h trends down everywhere. Keeping a modest QQQ short (cheap fees, tight stop); SEC skills skipped (no SEC_USER_AGENT).",
   "orders": [
-    {"action": "open", "symbol": "QQQ", "side": "short", "stop_pct": 1.6, "target_pct": 3.5, "size_pct": 15,
-     "reason": "Tech selloff on hot inflation/Fed fears, 15m+1h trend down, cheap index instrument"}
+    {"action": "open", "symbol": "QQQ", "side": "short", "stop_pct": 1.8, "target_pct": 3.5, "size_pct": 15,
+     "reason": "AI/tech selloff on inflation, tariffs and Fed fears; trend down on 15m and 1h; low-cost index instrument"}
   ]
 }
