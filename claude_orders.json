@@ -1,9 +1,9 @@
 {
-  "id": "2026-11-25T17:10Z",
-  "created": 1795626387,
-  "summary": "Trader-news (QQQ/SPY/NVDA/AMD/BTC/oil): Nasdaq -4% as 3.8% PCE inflation, tariff threats and Fed-hike fears unwind the AI trade, with 15m and 1h trends down across the board. Flat so far, so re-submitting a modest QQQ short with a tight stop; SEC skills skipped (no SEC_USER_AGENT).",
+  "id": "2026-11-25T18:10Z",
+  "created": 1795629966,
+  "summary": "Trader-news (QQQ/SPY/NVDA/AMD/BTC/oil): Nasdaq 100 near bear-market territory (-20% from Oct highs) on inflation, tariffs and AI-trade doubts; today's +1.6% hourly bounce still sits under 15m/1h downtrends. Still flat, so shorting the bounce in QQQ with a tight stop; SEC skills skipped (no SEC_USER_AGENT).",
   "orders": [
     {"action": "open", "symbol": "QQQ", "side": "short", "stop_pct": 1.8, "target_pct": 3.5, "size_pct": 15,
-     "reason": "AI/tech selloff on inflation, tariffs and Fed fears; trend down on 15m and 1h; low-cost index instrument"}
+     "reason": "Fading an intraday bounce in an AI/tech selloff; 15m and 1h trends down; cheap index instrument"}
   ]
 }
