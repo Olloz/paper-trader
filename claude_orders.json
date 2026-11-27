@@ -1,9 +1,9 @@
 {
-  "id": "2026-11-27T18:10Z",
-  "created": 1795802806,
-  "summary": "Trader-news on BTC/ETH/AMD/AAPL/SPY: same BTC backdrop (JPMorgan capitulation call, reserve bill advancing vs ETF outflows); BTC RSI 39 with 1h uptrend supports a small bounce long, re-issued as portfolio is still flat. Stocks extended after big 24h runs, skipped; SEC skills skipped (no SEC_USER_AGENT).",
+  "id": "2026-11-27T19:06Z",
+  "created": 1795806397,
+  "summary": "Trader-news on BTC/ETH/SOL: same mixed backdrop (JPMorgan capitulation call, reserve bill advancing vs $5B+ ETF outflows, tariff-driven downside warnings); BTC RSI 40 with 1h uptrend supports a small bounce long, re-issued as still flat. Stocks/UK shut; SEC skills skipped (no SEC_USER_AGENT).",
   "orders": [
     {"action": "open", "symbol": "BTC", "side": "long", "stop_pct": 2.5, "target_pct": 3.5, "size_pct": 12,
-     "reason": "Capitulation call, RSI 39 and 1h uptrend; small mean-reversion bounce"}
+     "reason": "Capitulation call, RSI 40 and 1h uptrend; small mean-reversion bounce"}
   ]
 }
