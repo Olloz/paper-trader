@@ -1,9 +1,9 @@
 {
-  "id": "2026-11-27T15:10Z",
-  "created": 1795792025,
-  "summary": "Trader-news on BTC/ETH/SOL/LINK shows the broad ~4% one-hour crypto drop is tariff-headline driven (analyst $38k warning) against an ongoing holiday rebound and Strategy buying; RSI 10-16 with 1h trend still up looks like an oversold flush, so a small BTC bounce long. SEC skills skipped (no SEC_USER_AGENT).",
+  "id": "2026-11-27T16:10Z",
+  "created": 1795795628,
+  "summary": "Trader-news on BTC/ETH/PLTR: JPMorgan says BTC capitulation reached, Strategy buying 4th week and holiday rebound, offset by tariff-crash warnings; RSI 35 with 1h trend up favours a small BTC bounce long. PLTR already +16% on Poland deal rumour so skipped; SEC skills skipped (no SEC_USER_AGENT).",
   "orders": [
     {"action": "open", "symbol": "BTC", "side": "long", "stop_pct": 2.5, "target_pct": 3.5, "size_pct": 15,
-     "reason": "RSI 10 flush on tariff headlines inside a rebound; Strategy still buying, mean-reversion bounce"}
+     "reason": "Capitulation call + Strategy bid, RSI 35 and 1h uptrend; small mean-reversion bounce"}
   ]
 }
